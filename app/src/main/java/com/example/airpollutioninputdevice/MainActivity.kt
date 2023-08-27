@@ -41,6 +41,34 @@ import org.json.JSONObject
 
 import kotlinx.coroutines.*
 
+import kotlinx.serialization.Serializable
+
+import io.ktor.client.*
+import io.ktor.client.call.body
+import io.ktor.client.engine.cio.*
+
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.json.Json
+
+import io.ktor.client.request.*
+
+@Serializable
+data class AirData(
+    val pm10: String,
+    val pm25: String,
+    val so2: String,
+    val co: String,
+    val o3: String,
+    val no2: String,
+)
+
+@Serializable
+data class AirQualityResponse(
+    val rows: List<AirData>,
+)
+
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,11 +85,20 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!", modifier = modifier
-    )
+suspend fun getAirQuality(): AirQualityResponse {
+    val client = HttpClient(CIO) {
+        install(ContentNegotiation) {
+            json(Json {
+                ignoreUnknownKeys = true
+            })
+        }
+    }
+
+    val url = "https://ispu.menlhk.go.id/apimobile/v1/getDetail/stasiun/BANDUNG"
+
+    val customer: AirQualityResponse = client.get(url).body()
+    println(AirQualityResponse)
+    return customer
 }
 
 @Composable
@@ -84,7 +121,7 @@ fun AirPollutionInputLayout() {
         verticalArrangement = Arrangement.Center
     ) {
 
-        inputField(
+        InputField(
             string1 = "PM",
             string2 = "10",
             value = pm10,
@@ -96,7 +133,7 @@ fun AirPollutionInputLayout() {
             ),
         )
 
-        inputField(
+        InputField(
             string1 = "PM",
             string2 = "25",
             value = pm25,
@@ -106,7 +143,7 @@ fun AirPollutionInputLayout() {
             ),
         )
 
-        inputField(
+        InputField(
             string1 = "SO",
             string2 = "2",
             value = so2,
@@ -116,7 +153,7 @@ fun AirPollutionInputLayout() {
             ),
         )
 
-        inputField(
+        InputField(
             string1 = "CO",
             string2 = "",
             value = co,
@@ -126,7 +163,7 @@ fun AirPollutionInputLayout() {
             ),
         )
 
-        inputField(
+        InputField(
             string1 = "O",
             string2 = "3",
             value = o3,
@@ -136,7 +173,7 @@ fun AirPollutionInputLayout() {
             ),
         )
 
-        inputField(
+        InputField(
             string1 = "NO",
             string2 = "2",
             value = no2,
@@ -146,8 +183,31 @@ fun AirPollutionInputLayout() {
             ),
         )
 
-        if (isLoading) {
+        if (isLoading2) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+        } else {
+            Button(
+                onClick = {
+                    coroutineScope.launch {
+                        isLoading2 = true
+                        val response = getAirQuality()
+                        pm10 = response.rows.first().pm10
+                        pm25 = response.rows.first().pm25
+                        so2 = response.rows.first().so2
+                        co = response.rows.first().co
+                        o3 = response.rows.first().o3
+                        no2 = response.rows.first().no2
+                        isLoading2 = false
+                    }
+                },
+                enabled = true
+            ) {
+                Text(text = "get from menlhk.go.id")
+            }
+        }
+
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier)
         } else {
             Button(
                 onClick = {
@@ -172,39 +232,12 @@ fun AirPollutionInputLayout() {
                 Text(text = "SUBMIT")
             }
         }
-
-        if (isLoading2) {
-            CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-        } else {
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        isLoading2 = true
-                        delay(1000)  // Optional: ensure loading indicator is shown for at least 300ms
-                        if (pm10.isNotEmpty() && pm25.isNotEmpty() && so2.isNotEmpty() && co.isNotEmpty() && o3.isNotEmpty() && no2.isNotEmpty()) {
-                            submitData(
-                                pm10.toInt(),
-                                pm25.toInt(),
-                                so2.toInt(),
-                                co.toInt(),
-                                o3.toInt(),
-                                no2.toInt()
-                            )
-                        }
-                        isLoading2 = false
-                    }
-                },
-                enabled = pm10.isNotEmpty() && pm25.isNotEmpty() && so2.isNotEmpty() && co.isNotEmpty() && o3.isNotEmpty() && no2.isNotEmpty()
-            ) {
-                Text(text = "get from menlhk.go.id")
-            }
-        }
     }
 
 }
 
 @Composable
-fun inputField(
+fun InputField(
     string1: String,
     string2: String,
     value: String,
@@ -235,7 +268,7 @@ fun inputField(
 }
 
 
-private suspend fun submitData(
+private fun submitData(
     pm10: Int, pm25: Int, so2: Int, co: Int, o3: Int, no2: Int
 ) {
     val data = mapOf(
