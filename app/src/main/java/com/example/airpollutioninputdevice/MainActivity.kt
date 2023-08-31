@@ -5,9 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -53,6 +55,12 @@ import kotlinx.serialization.json.Json
 
 import io.ktor.client.request.*
 
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.ui.tooling.preview.Preview
+
 @Serializable
 data class AirData(
     val pm10: String,
@@ -85,7 +93,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-suspend fun getAirQuality(): AirQualityResponse {
+suspend fun getAirQuality(id_stasiun: String): AirQualityResponse {
     val client = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json {
@@ -94,13 +102,44 @@ suspend fun getAirQuality(): AirQualityResponse {
         }
     }
 
-    val url = "https://ispu.menlhk.go.id/apimobile/v1/getDetail/stasiun/BANDUNG"
+    val url = "https://ispu.menlhk.go.id/apimobile/v1/getDetail/stasiun/${id_stasiun}"
 
-    val customer: AirQualityResponse = client.get(url).body()
-    println(AirQualityResponse)
-    return customer
+//    val customer: AirQualityResponse = client.get(url).body()
+//    println(AirQualityResponse)
+//    return customer
+
+    return try {
+        val customer: AirQualityResponse = client.get(url).body()
+        println(AirQualityResponse)
+        customer
+    } catch (e: Exception) {
+        e.printStackTrace()
+        val airData = AirData(
+            pm10 = "",
+            pm25 = "",
+            so2 = "",
+            co = "",
+            o3 = "",
+            no2 = ""
+        )
+
+        val airQualityResponse = AirQualityResponse(
+            rows = listOf(airData)
+        )
+        val customer: AirQualityResponse = airQualityResponse
+        customer
+    }
 }
 
+data class Station(val nama: String, val id_stasiun: String)
+
+val options = listOf(
+    Station("Bandung Cihapit", "BANDUNG"),
+    Station("DKI Bundaran HI", "DKI1"),
+    Station("DKI Kelapa Gading", "DKI2")
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AirPollutionInputLayout() {
     var pm10 by remember { mutableStateOf("") }
@@ -112,85 +151,156 @@ fun AirPollutionInputLayout() {
     var isLoading by remember { mutableStateOf(false) }
     var isLoading2 by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    var expanded by remember { mutableStateOf(false) }
+    var selectedOptionText by remember { mutableStateOf("") }
+    var selectedOptionId by remember { mutableStateOf("BANDUNG") }
 
     Column(
         modifier = Modifier
-            .padding(40.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            InputField(
+                string1 = "PM",
+                string2 = "10",
+                value = pm10,
+                onValueChange = {
+                    pm10 = it.filter { it.isDigit() }
+                },
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
+                ),
+            )
 
-        InputField(
-            string1 = "PM",
-            string2 = "10",
-            value = pm10,
-            onValueChange = {
-                pm10 = it.filter { it.isDigit() }
-            },
-            keyboardOptions = KeyboardOptions.Default.copy(
-                keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
-            ),
-        )
+            InputField(
+                string1 = "PM",
+                string2 = "25",
+                value = pm25,
+                onValueChange = { pm25 = it.filter { it.isDigit() } },
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
+                ),
+            )
+        }
 
-        InputField(
-            string1 = "PM",
-            string2 = "25",
-            value = pm25,
-            onValueChange = { pm25 = it.filter { it.isDigit() } },
-            keyboardOptions = KeyboardOptions.Default.copy(
-                keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
-            ),
-        )
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            InputField(
+                string1 = "SO",
+                string2 = "2",
+                value = so2,
+                onValueChange = { so2 = it.filter { it.isDigit() } },
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
+                ),
+            )
 
-        InputField(
-            string1 = "SO",
-            string2 = "2",
-            value = so2,
-            onValueChange = { so2 = it.filter { it.isDigit() } },
-            keyboardOptions = KeyboardOptions.Default.copy(
-                keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
-            ),
-        )
+            InputField(
+                string1 = "CO",
+                string2 = "",
+                value = co,
+                onValueChange = { co = it.filter { it.isDigit() } },
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
+                ),
+            )
+        }
 
-        InputField(
-            string1 = "CO",
-            string2 = "",
-            value = co,
-            onValueChange = { co = it.filter { it.isDigit() } },
-            keyboardOptions = KeyboardOptions.Default.copy(
-                keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
-            ),
-        )
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            InputField(
+                string1 = "O",
+                string2 = "3",
+                value = o3,
+                onValueChange = { o3 = it.filter { it.isDigit() } },
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
+                ),
+            )
 
-        InputField(
-            string1 = "O",
-            string2 = "3",
-            value = o3,
-            onValueChange = { o3 = it.filter { it.isDigit() } },
-            keyboardOptions = KeyboardOptions.Default.copy(
-                keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
-            ),
-        )
+            InputField(
+                string1 = "NO",
+                string2 = "2",
+                value = no2,
+                onValueChange = { no2 = it.filter { it.isDigit() } },
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
+                ),
+            )
+        }
 
-        InputField(
-            string1 = "NO",
-            string2 = "2",
-            value = no2,
-            onValueChange = { no2 = it.filter { it.isDigit() } },
-            keyboardOptions = KeyboardOptions.Default.copy(
-                keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
-            ),
-        )
+
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+            ) {
+                TextField(
+                    // The `menuAnchor` modifier must be passed to the text field for correctness.
+                    modifier = Modifier
+                        .menuAnchor()
+                        .padding(horizontal = 20.dp)
+                        .fillMaxWidth(),
+                    readOnly = true,
+                    value = selectedOptionText,
+                    onValueChange = {},
+                    label = { Text("Lokasi") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    colors = ExposedDropdownMenuDefaults.textFieldColors(),
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                ) {
+                    options.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text(selectionOption.nama) },
+                            onClick = {
+                                selectedOptionText = selectionOption.nama
+                                selectedOptionId = selectionOption.id_stasiun
+                                expanded = false
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                        )
+                    }
+                }
+            }
+        }
 
         if (isLoading2) {
-            CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+            CircularProgressIndicator(modifier = Modifier)
         } else {
             Button(
                 onClick = {
+                    if (selectedOptionText == "") {
+                        selectedOptionText = options[0].nama;
+                        selectedOptionId = options[0].id_stasiun;
+                    }
+
                     coroutineScope.launch {
                         isLoading2 = true
-                        val response = getAirQuality()
+                        val response = getAirQuality(selectedOptionId)
                         pm10 = response.rows.first().pm10
                         pm25 = response.rows.first().pm25
                         so2 = response.rows.first().so2
@@ -200,7 +310,8 @@ fun AirPollutionInputLayout() {
                         isLoading2 = false
                     }
                 },
-                enabled = true
+                enabled = true,
+                modifier = Modifier
             ) {
                 Text(text = "get from menlhk.go.id")
             }
@@ -213,7 +324,7 @@ fun AirPollutionInputLayout() {
                 onClick = {
                     coroutineScope.launch {
                         isLoading = true
-                        delay(1000)  // Optional: ensure loading indicator is shown for at least 300ms
+                        delay(500)  // Optional: ensure loading indicator is shown for at least 300ms
                         if (pm10.isNotEmpty() && pm25.isNotEmpty() && so2.isNotEmpty() && co.isNotEmpty() && o3.isNotEmpty() && no2.isNotEmpty()) {
                             submitData(
                                 pm10.toInt(),
@@ -227,7 +338,8 @@ fun AirPollutionInputLayout() {
                         isLoading = false
                     }
                 },
-                enabled = pm10.isNotEmpty() && pm25.isNotEmpty() && so2.isNotEmpty() && co.isNotEmpty() && o3.isNotEmpty() && no2.isNotEmpty()
+                enabled = selectedOptionText.isNotEmpty() && pm10.isNotEmpty() && pm25.isNotEmpty() && so2.isNotEmpty() && co.isNotEmpty() && o3.isNotEmpty() && no2.isNotEmpty(),
+                modifier = Modifier
             ) {
                 Text(text = "SUBMIT")
             }
@@ -242,7 +354,10 @@ fun InputField(
     string2: String,
     value: String,
     onValueChange: (String) -> Unit,
-    keyboardOptions: KeyboardOptions
+    keyboardOptions: KeyboardOptions,
+    modifier: Modifier = Modifier
+        .width(175.dp)
+        .padding(20.dp)
 ) {
     TextField(
         label = {
@@ -261,9 +376,10 @@ fun InputField(
         value = value,
         onValueChange = onValueChange,
         keyboardOptions = keyboardOptions,
-        modifier = Modifier
-            .padding(bottom = 32.dp)
-            .fillMaxWidth(),
+//        modifier = Modifier
+//            .padding(bottom = 32.dp)
+//            .fillMaxWidth(),
+        modifier = modifier
     )
 }
 
@@ -301,10 +417,10 @@ private fun submitData(
     }
 }
 
-//@Preview(showBackground = true, showSystemUi = true)
-//@Composable
-//fun GreetingPreview() {
-//    AirPollutionInputDeviceTheme {
-//        AirPollutionInputLayout()
-//    }
-//}
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun GreetingPreview() {
+    AirPollutionInputDeviceTheme {
+        AirPollutionInputLayout()
+    }
+}
