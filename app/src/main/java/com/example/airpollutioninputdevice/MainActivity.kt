@@ -293,13 +293,13 @@ fun AirPollutionInputLayout() {
         } else {
             Button(
                 onClick = {
+                    isLoading2 = true
                     if (selectedOptionText == "") {
                         selectedOptionText = options[0].nama;
                         selectedOptionId = options[0].id_stasiun;
                     }
 
                     coroutineScope.launch {
-                        isLoading2 = true
                         val response = getAirQuality(selectedOptionId)
                         pm10 = response.rows.first().pm10
                         pm25 = response.rows.first().pm25
@@ -322,19 +322,17 @@ fun AirPollutionInputLayout() {
         } else {
             Button(
                 onClick = {
+                    isLoading = true
                     coroutineScope.launch {
-                        isLoading = true
-                        delay(500)  // Optional: ensure loading indicator is shown for at least 300ms
-                        if (pm10.isNotEmpty() && pm25.isNotEmpty() && so2.isNotEmpty() && co.isNotEmpty() && o3.isNotEmpty() && no2.isNotEmpty()) {
-                            submitData(
-                                pm10.toInt(),
-                                pm25.toInt(),
-                                so2.toInt(),
-                                co.toInt(),
-                                o3.toInt(),
-                                no2.toInt()
-                            )
-                        }
+                        submitData(
+                            pm10.toInt(),
+                            pm25.toInt(),
+                            so2.toInt(),
+                            co.toInt(),
+                            o3.toInt(),
+                            no2.toInt(),
+                            selectedOptionId
+                        )
                         isLoading = false
                     }
                 },
@@ -384,43 +382,39 @@ fun InputField(
 }
 
 
-private fun submitData(
-    pm10: Int, pm25: Int, so2: Int, co: Int, o3: Int, no2: Int
+suspend fun submitData(
+    pm10: Int, pm25: Int, so2: Int, co: Int, o3: Int, no2: Int, location: String
 ) {
     val data = mapOf(
-        "pm10" to pm10, "pm25" to pm25, "so2" to so2, "co" to co, "o3" to o3, "no2" to no2
+        "pm10" to pm10, "pm25" to pm25, "so2" to so2, "co" to co, "o3" to o3, "no2" to no2, "location" to location
     )
 
     val json = JSONObject(data).toString()
-
-    try {
-        val mqttClient = MqttClient(
-            "tcp://test.mosquitto.org:1883", MqttClient.generateClientId(), null
-        )
-
-        mqttClient.connect()
-
-        val message = MqttMessage()
-        message.payload = json.toByteArray()
-
-        mqttClient.publish("air_parameter", message)
-
-        mqttClient.disconnect()
-
-        println("Message successfully published!")
-    } catch (e: MqttException) {
-        println("Error when connecting to MQTT broker or publishing message: ${e.message}")
-        println("Reason code: ${e.reasonCode}")
-        println("Cause: ${e.cause}")
-        println("Exception stack trace: ")
-        e.printStackTrace()
+    withContext(Dispatchers.IO) {
+        try {
+            val mqttClient = MqttClient(
+                "tcp://test.mosquitto.org:1883", MqttClient.generateClientId(), null
+            )
+            mqttClient.connect()
+            val message = MqttMessage()
+            message.payload = json.toByteArray()
+            mqttClient.publish("air_parameter", message)
+            mqttClient.disconnect()
+            println("Message successfully published!")
+        } catch (e: MqttException) {
+            println("Error when connecting to MQTT broker or publishing message: ${e.message}")
+            println("Reason code: ${e.reasonCode}")
+            println("Cause: ${e.cause}")
+            println("Exception stack trace: ")
+            e.printStackTrace()
+        }
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun GreetingPreview() {
-    AirPollutionInputDeviceTheme {
-        AirPollutionInputLayout()
-    }
-}
+//@Preview(showBackground = true, showSystemUi = true)
+//@Composable
+//fun GreetingPreview() {
+//    AirPollutionInputDeviceTheme {
+//        AirPollutionInputLayout()
+//    }
+//}
